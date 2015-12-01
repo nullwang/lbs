@@ -1,0 +1,32 @@
+数据文件说明
+
+1. dataimport.zip 数据脚本，包含国家、省市、地区数据
+2  dataimport-appender.zip 附加数据包含市区数据
+3. confimport.zip  zookeeper导入脚本，用于上传schema 到zookeeper
+4. solrcloud.zip  城市的schema配置，可以通过confimport中工具将其导入到solr
+
+
+#################如何上传schema到zookeeper##################
+上传cityCore ,命令如下 -confdir指定本地路径
+./cloud-scripts/zkcli.sh -zkhost {zookeeperServer1}:2181,{zookeeperServer2}:2181 -cmd upconfig -confdir ./cityCore/conf -confname cityCollection
+
+在solr cloud上创建cityCollection,命令如下
+curl 'http://{solrServer}:8983/solr/admin/collections?action=CREATE&name=cityCollection&replicationFactor=2&collection.configName=cityCollection&numShards=1'
+
+检查操作是否正确
+curl 'http://{solrServer}:8983/solr/cityCollection/query'
+
+zookeeper 清除数据
+zkcli.sh -cmd clear -zkhost {zookeeperServer1}:2181,{zookeeperServer2}:2181 /configs/newStroeCollection
+solr 清除collection
+curl 'http://{solrServer}:8983/solr/admin/collections?action=DELETE&name=newStoreCollection'
+
+#####################GIS 数据导入###############################
+在dataimport.zip 解压后的data目录中运行：
+java -Dfile=*.json -Dconvert=flase -DgenConvert=false -Dcommit=true -Dbatch=true -Dthreads=2 -DsolrTimeout=20 -Dtimeout=600 -Durl=http://{solrIp}:{port}/solr/cityCollection -jar lbse-convert.jar
+例如：java -Dfile=*.json -Dconvert=flase -DgenConvert=false -Dcommit=true -Dbatch=true -Dthreads=2 -DsolrTimeout=20 -Dtimeout=600 -Durl=http://192.168.0.1:8983/solr/cityCollection -jar lbse-convert.jar
+
+如中途出现超时错误，待命令执行完后，修改-Dfile 参数 提交出错的文件 ,直到所有数据均成功导入。
+java -Dfile=*.json.err -Dconvert=flase -DgenConvert=false -Dcommit=true -Dbatch=true -Dthreads=2 -DsolrTimeout=20 -Dtimeout=600 -Durl=http://{solrIp}:{port}/solr/cityCollection -jar lbse-convert.jar
+例如：java -Dfile=*.json.err -Dconvert=flase -DgenConvert=false -Dcommit=true -Dbatch=true -Dthreads=2 -DsolrTimeout=20 -Dtimeout=600 -Durl=http://192.168.0.215:8983/solr/cityCollection -jar lbse-convert.jar
+

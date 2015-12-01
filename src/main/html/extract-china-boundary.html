@@ -1,0 +1,144 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>获取地区轮廓线</title>
+<script type="text/javascript" src="http://api.map.baidu.com/api?v=1.3">
+</script>
+<style type="text/css">
+body{font-size:13px;margin:10px}
+#container{width:800px;height:500px;border:1px solid gray}
+#outputResStyle{width:400px;height:200px;border:1px solid gray}
+</style>
+</head>
+<body>
+<div id="container"></div>
+<br />
+输入省、直辖市或县名称<input type="text" id="districtName" style="width:80px" value="上海市">
+<input type="button" onclick="getBoundary()" value="获取轮廓线">
+
+<br /><br />
+<input type="button" onclick="getBoundaryAll()" value="导出">
+
+<input type="text" id="outputText" style="width:100px" value="region1">
+
+
+<script type="text/javascript">
+
+var map = new BMap.Map("container");
+map.centerAndZoom(new BMap.Point(116.403765, 39.914850), 5);
+map.addControl(new BMap.NavigationControl({type: BMAP_NAVIGATION_CONTROL_SMALL}));
+map.enableScrollWheelZoom();
+
+
+var cityfso = new ActiveXObject("Scripting.FileSystemObject");
+var cityFilePre = "D:\\test\\boundaries.txt";
+var input = "D:\\test\\input.txt";
+
+function getBoundary(){       
+    var bdary = new BMap.Boundary();
+    var name = document.getElementById("districtName").value;
+    bdary.get(name, function(rs){      
+		var ofile = cityfso.OpenTextFile(cityFilePre, 2, true);
+		ofile.WriteLine(document.getElementById("districtName").value);
+        map.clearOverlays();        //      
+        var count = rs.boundaries.length; //行政区域的点有多少个
+        for(var i = 0; i < count; i++){
+			ofile.WriteLine(rs.boundaries[i] + "\n" + input);
+            var ply = new BMap.Polygon(rs.boundaries[i], {strokeWeight: 2, strokeColor: "#ff0000"}); //建立多边形覆盖物
+            map.addOverlay(ply);  //添加覆盖物
+            map.setViewport(ply.getPath());            
+        }  
+		ofile.Close();		
+    }); 
+}
+
+
+var regionPre = "D:\\test\\";
+var resultPre = "D:\\test\\output\\";
+var unhandled = "D:\\test\\output\\cities.txt";
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+
+function getBoundaryAll(){       
+	var regionList = regionPre + document.getElementById("outputText").value + ".txt";
+    var inFile = fso.OpenTextFile(regionList, 1, true);
+	//var unhandledFile = fso.OpenTextFile(unhandled, 8, true);
+    
+    var readLine = "";
+	var content = "";
+    while (!inFile.AtEndOfStream) {
+    	readLine = inFile.ReadLine();
+    	if(readLine.length == 0)
+        	continue;
+			
+		var codeAndName = readLine.split(",");
+	
+		getOneBoundary(codeAndName[0], codeAndName[1], codeAndName[6], codeAndName[5], readLine);
+		//content += readLine + ",";
+    }
+
+    inFile.Close();
+	//unhandledFile.Close();
+	//document.getElementById("outputText").value=content;
+}
+
+function getOneBoundary(code, name, city, province, readLine) {
+		
+	if(code.lastIndexOf("00") == 4 ) {
+		var empty = resultPre + province + "-empty.txt";
+		var emptyfile = fso.OpenTextFile(empty, 8, true);
+		emptyfile.WriteLine(readLine);
+		emptyfile.Close();
+		return;
+	}
+		
+	var bdary = new BMap.Boundary();
+	var queryName = city + name;
+	var count = 0;
+	var test = bdary.get(queryName, function(rs){  
+	var count = rs.boundaries.length; //行政区域的点有多少个
+	
+		if(count > 0) {
+			var result = resultPre + province + ".txt";
+			var ofile = fso.OpenTextFile(result, 8, true);
+			var outLine = readLine + ",MULTIPOLYGON(";		
+			for(var i = 0; i < count; i++){
+				outLine += "((" + rs.boundaries[i] + "))";
+				if((i + 1) < count)
+					outLine += ",";
+			}  
+			outLine += ")";
+			ofile.WriteLine(outLine);
+			ofile.Close();			
+		}
+		else{
+			bdary.get(name, function(rs){  
+			var count = rs.boundaries.length; //行政区域的点有多少个
+			
+			if(count <= 0) {
+				var empty = resultPre + province + "-empty.txt";
+				var emptyfile = fso.OpenTextFile(empty, 8, true);		
+				emptyfile.WriteLine(readLine + ", empty");	
+				emptyfile.Close();
+			}
+			else{
+					var result = resultPre + province + ".txt";
+					var ofile = fso.OpenTextFile(result, 8, true);
+					var outLine = readLine + ",MULTIPOLYGON(";		
+					for(var i = 0; i < count; i++){
+						outLine += "((" + rs.boundaries[i] + "))";
+						if((i + 1) < count)
+							outLine += ",";
+					}  
+					outLine += ")";
+					ofile.WriteLine(outLine);
+					ofile.Close();			
+				}	
+			});
+		}
+	});
+}
+
+</script>
+</body>
+</html>
